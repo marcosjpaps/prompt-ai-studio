@@ -46,7 +46,7 @@ async function run(req:Request){
     const reqBody = {model:aiModel,max_tokens:10,messages:[{role:'user',content:'Olá.'}]};
     const resp=await fetch(endpoint,{method:'POST',headers:{Authorization:`Bearer ${reqAiKey}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(15000),body:JSON.stringify(reqBody)});
     if(!resp.ok) {
-      try { const err = await resp.json(); return json({error: err.error?.message || 'Chave inválida ou provedor indisponível.'},502); } 
+      try { const err = await resp.json() as any; return json({error: err.error?.message || 'Chave inválida ou provedor indisponível.'},502); } 
       catch { return json({error:'Conexão falhou. Verifique sua chave.'},502); }
     }
     return json({success:true});
