@@ -42,9 +42,9 @@ async function run(req:Request){
     if(!reqAiKey)return json({error:'Adicione sua chave de API nas configurações.'},503);
     const provider = typeof body.aiProvider==='string'?body.aiProvider:'openai';
     const endpoint = provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : provider === 'groq' ? 'https://api.groq.com/openai/v1/chat/completions' : provider === 'grok' ? 'https://api.x.ai/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
-    const aiModel = provider === 'openrouter' ? 'google/gemini-flash-1.5' : provider === 'groq' ? 'llama-3.2-90b-vision-preview' : provider === 'grok' ? 'grok-vision-beta' : aiConfig().model;
+    const aiModel = provider === 'openrouter' ? 'openai/gpt-4o' : provider === 'groq' ? 'llama-3.2-90b-vision-preview' : provider === 'grok' ? 'grok-vision-beta' : aiConfig().model;
     const reqBody = {model:aiModel,max_tokens:10,messages:[{role:'user',content:'Olá.'}]};
-    const resp=await fetch(endpoint,{method:'POST',headers:{Authorization:`Bearer ${reqAiKey}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(15000),body:JSON.stringify(reqBody)});
+    const resp=await fetch(endpoint,{method:'POST',headers:{Authorization:`Bearer ${reqAiKey}`,'Content-Type':'application/json','HTTP-Referer':req.headers.get('origin')||'https://prompt-ai-studio.vercel.app','X-Title':'Prompt AI Studio'},signal:AbortSignal.timeout(15000),body:JSON.stringify(reqBody)});
     if(!resp.ok) {
       try { const err = await resp.json() as any; return json({error: err.error?.message || 'Chave inválida ou provedor indisponível.'},502); } 
       catch { return json({error:'Conexão falhou. Verifique sua chave.'},502); }
@@ -56,7 +56,7 @@ async function run(req:Request){
   if(!reqAiKey)return json({error:'A análise visual precisa de uma chave de API. Adicione nas configurações.'},503);
   const provider = typeof body.aiProvider==='string'?body.aiProvider:'openai';
   const endpoint = provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : provider === 'groq' ? 'https://api.groq.com/openai/v1/chat/completions' : provider === 'grok' ? 'https://api.x.ai/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
-  const aiModel = provider === 'openrouter' ? 'google/gemini-flash-1.5' : provider === 'groq' ? 'llama-3.2-90b-vision-preview' : provider === 'grok' ? 'grok-vision-beta' : aiConfig().model;
+  const aiModel = provider === 'openrouter' ? 'openai/gpt-4o' : provider === 'groq' ? 'llama-3.2-90b-vision-preview' : provider === 'grok' ? 'grok-vision-beta' : aiConfig().model;
   const row=(await db().select().from(images).where(and(eq(images.id, typeof body.imageId==='string'?body.imageId:''), eq(images.userId, u))).limit(1))[0];if(!row)return json({error:'Envie uma imagem primeiro.'},400);const obj=await bucket().get(row.key);if(!obj)return json({error:'Imagem não encontrada.'},404);
   const buf=await obj.arrayBuffer();const bytes=new Uint8Array(buf||new ArrayBuffer(0));let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));
   
@@ -70,7 +70,7 @@ async function run(req:Request){
     reqBody.response_format = {type:'json_object'};
   }
 
-  const resp=await fetch(endpoint,{method:'POST',headers:{Authorization:`Bearer ${reqAiKey}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(45000),body:JSON.stringify(reqBody)});
+  const resp=await fetch(endpoint,{method:'POST',headers:{Authorization:`Bearer ${reqAiKey}`,'Content-Type':'application/json','HTTP-Referer':req.headers.get('origin')||'https://prompt-ai-studio.vercel.app','X-Title':'Prompt AI Studio'},signal:AbortSignal.timeout(45000),body:JSON.stringify(reqBody)});
   if(!resp.ok)return json({error:'Não foi possível analisar a imagem. Confira se a chave de API é válida e o provedor suporta visão computacional.'},502);
   const data = await resp.json() as any;try{let txt = data.choices[0].message.content; if(txt.startsWith('```json')) txt = txt.replace(/```json|```/g, ''); const result=JSON.parse(txt);if(typeof result.description!=='string')throw new Error();return json(result);}catch{return json({error:'A análise retornou um formato inesperado. Tente novamente.'},502);}
   }
