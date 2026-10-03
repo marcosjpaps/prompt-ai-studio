@@ -68,7 +68,7 @@ export default function ChatWidget() {
       const resp = await fetch(endpoint, {
         method: 'POST',
         headers: {
-          'Authorization': \`Bearer \${currentKey}\`,
+          'Authorization': `Bearer ${currentKey}`,
           'Content-Type': 'application/json',
           'HTTP-Referer': window.location.origin,
           'X-Title': 'Prompt AI Studio'
@@ -127,7 +127,7 @@ export default function ChatWidget() {
 
           <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-3 text-sm bg-[#111] custom-scrollbar">
             {messages.map((m, i) => (
-              <div key={i} className={\`max-w-[85%] rounded-2xl px-4 py-2 \${m.role === 'user' ? 'bg-indigo-600 text-white self-end rounded-br-sm' : 'bg-[#1a1a1a] border border-[#333] text-gray-200 self-start rounded-bl-sm'}\`}>
+              <div key={i} className={`max-w-[85%] rounded-2xl px-4 py-2 ${m.role === 'user' ? 'bg-indigo-600 text-white self-end rounded-br-sm' : 'bg-[#1a1a1a] border border-[#333] text-gray-200 self-start rounded-bl-sm'}`}>
                 {m.content}
               </div>
             ))}
@@ -160,11 +160,11 @@ export default function ChatWidget() {
         {isOpen ? <X size={26} /> : <MessageSquare size={26} />}
       </button>
 
-      <style dangerouslySetInnerHTML={{__html:\`
+      <style dangerouslySetInnerHTML={{__html:`
         @keyframes slideUp { from { opacity: 0; transform: translateY(15px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #333; border-radius: 10px; }
-      \`}} />
+      `}} />
     </div>
   );
 }
