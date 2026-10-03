@@ -1,13 +1,13 @@
 import { env } from "cloudflare:workers";
-import { drizzle } from "drizzle-orm/d1";
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
 
 export function getDb() {
-  if (!env.DB) {
-    throw new Error(
-      "Cloudflare D1 binding `DB` is unavailable. Set the `d1` field in .openai/hosting.json to `DB` or let your control plane inject the real binding values before using the database."
-    );
+  if (!env.DATABASE_URL) {
+    throw new Error("Neon DATABASE_URL binding is unavailable.");
   }
 
-  return drizzle(env.DB, { schema });
+  const sql = neon(env.DATABASE_URL as string);
+  return drizzle(sql, { schema });
 }
