@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { getDb } from '../db/index';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
