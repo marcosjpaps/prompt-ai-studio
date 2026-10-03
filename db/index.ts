@@ -4,10 +4,11 @@ import { drizzle } from "drizzle-orm/neon-http";
 import * as schema from "./schema";
 
 export function getDb() {
-  if (!env.DATABASE_URL) {
+  const dbUrl = process.env.DATABASE_URL || (env as any)?.DATABASE_URL;
+  if (!dbUrl) {
     throw new Error("Neon DATABASE_URL binding is unavailable.");
   }
 
-  const sql = neon(env.DATABASE_URL as string);
+  const sql = neon(dbUrl as string);
   return drizzle(sql, { schema });
 }

@@ -5,7 +5,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } fro
 export function db(){ return getDb(); }
 
 export function bucket(){
-  const e = process.env.S3_ENDPOINT ? process.env : env;
+  const e = (process.env.S3_ENDPOINT ? process.env : env) as Record<string, string>;
   if(!e.S3_ACCESS_KEY_ID || !e.S3_SECRET_ACCESS_KEY || !e.S3_ENDPOINT || !e.S3_BUCKET_NAME) 
     throw new Error('Armazenamento S3 indisponível. Tente novamente.');
   

@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 export async function POST(req: Request) {
-  const body = await req.json();
+  const body = (await req.json()) as any;
   
   if (body.token === 'MAR9115COS') {
     const cookieStore = await cookies();
