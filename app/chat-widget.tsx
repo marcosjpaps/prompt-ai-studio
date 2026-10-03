@@ -80,7 +80,7 @@ export default function ChatWidget() {
       });
 
       if (!resp.ok) throw new Error('Falha na resposta da API');
-      const data = await resp.json();
+      const data = await resp.json() as any;
       const reply = data.choices[0].message.content;
 
       const updatedHistory = [...newMessages, { role: 'assistant', content: reply }];
