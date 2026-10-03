@@ -1,11 +1,10 @@
-import { env } from 'cloudflare:workers';
 import { getDb } from '../db/index';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 export function db(){ return getDb(); }
 
 export function bucket(){
-  const e = (process.env.S3_ENDPOINT ? process.env : env) as Record<string, string>;
+  const e = process.env as Record<string, string>;
   if(!e.S3_ACCESS_KEY_ID || !e.S3_SECRET_ACCESS_KEY || !e.S3_ENDPOINT || !e.S3_BUCKET_NAME) 
     throw new Error('Armazenamento S3 indisponível. Tente novamente.');
   
@@ -52,4 +51,4 @@ export function bucket(){
   };
 }
 
-export function aiConfig(){const e=process.env.OPENAI_API_KEY ? process.env : env as unknown as Record<string,string>;return {key:e.OPENAI_API_KEY as string,model:(e.OPENAI_MODEL as string)||'gpt-4.1-mini'};}
+export function aiConfig(){const e=process.env as Record<string,string>;return {key:e.OPENAI_API_KEY as string,model:(e.OPENAI_MODEL as string)||'gpt-4.1-mini'};}
