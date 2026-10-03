@@ -74,6 +74,15 @@ async function run(req:Request){
   if(!resp.ok)return json({error:'Não foi possível analisar a imagem. Confira se a chave de API é válida e o provedor suporta visão computacional.'},502);
   const data = await resp.json() as any;try{let txt = data.choices[0].message.content; if(txt.startsWith('```json')) txt = txt.replace(/```json|```/g, ''); const result=JSON.parse(txt);if(typeof result.description!=='string')throw new Error();return json(result);}catch{return json({error:'A análise retornou um formato inesperado. Tente novamente.'},502);}
   }
+  if(path==='logout'){
+    return new Response(null, {
+      status: 302,
+      headers: {
+        'Location': '/',
+        'Set-Cookie': 'chatgpt_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0'
+      }
+    });
+  }
  return json({error:'Recurso não encontrado.'},404);
 }
 async function handle(req:Request){try{return await run(req);}catch(e){if(e instanceof InputError)return json({error:e.message},e.status);console.error('Studio API error',e instanceof Error?e.message:'unknown');return json({error:'Não foi possível concluir. Seus campos foram preservados; tente novamente.'},500);}}
