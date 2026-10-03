@@ -37,6 +37,20 @@ async function run(req:Request){
  if(body.imageId){if(typeof body.imageId!=='string')return json({error:'Referência inválida.'},400);const owned=(await db().select({id: images.id}).from(images).where(and(eq(images.id, body.imageId), eq(images.userId, u))).limit(1))[0];if(!owned)return json({error:'Referência não encontrada.'},404);}
  return json({...composePrompt(c,!!body.imageId),mode:'template'});
  }
+  if(path==='test-ai'&&req.method==='POST'){
+    const reqAiKey = typeof body.apiKey==='string'&&body.apiKey.trim() ? body.apiKey : aiConfig().key;
+    if(!reqAiKey)return json({error:'Adicione sua chave de API nas configurações.'},503);
+    const provider = typeof body.aiProvider==='string'?body.aiProvider:'openai';
+    const endpoint = provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : provider === 'groq' ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
+    const aiModel = provider === 'openrouter' ? 'google/gemini-flash-1.5' : provider === 'groq' ? 'llama-3.2-90b-vision-preview' : aiConfig().model;
+    const reqBody = {model:aiModel,max_tokens:10,messages:[{role:'user',content:'Olá.'}]};
+    const resp=await fetch(endpoint,{method:'POST',headers:{Authorization:`Bearer ${reqAiKey}`,'Content-Type':'application/json'},signal:AbortSignal.timeout(15000),body:JSON.stringify(reqBody)});
+    if(!resp.ok) {
+      try { const err = await resp.json(); return json({error: err.error?.message || 'Chave inválida ou provedor indisponível.'},502); } 
+      catch { return json({error:'Conexão falhou. Verifique sua chave.'},502); }
+    }
+    return json({success:true});
+  }
   if(path==='analyze-image'&&req.method==='POST'){
   const reqAiKey = typeof body.apiKey==='string'&&body.apiKey.trim() ? body.apiKey : aiConfig().key;
   if(!reqAiKey)return json({error:'A análise visual precisa de uma chave de API. Adicione nas configurações.'},503);
