@@ -40,3 +40,14 @@ Configure as variáveis de ambiente no Vercel (Project Settings → Environment 
 - SHOP_VISION_MODEL: opcional, nome do modelo que aceite imagens e retorne JSON (padrão: gpt-4o-mini).
 
 O provedor deve aceitar mensagens multimodais OpenAI-compatible com image_url em data URI e resposta JSON contendo category, description e highlights. A chave nunca deve ser enviada ao usuário final ou incluída em commits. A análise por API poderá gerar cobrança do provedor escolhido. Após configurar as variáveis, implante novamente para disponibilizar a integração ao servidor.
+
+
+### Contador mensal de análises de imagens
+
+O TikTok Shop Creator mostra a quantidade de análises concluídas no mês e estimativa de custo em reais. A API informa a quantidade de tokens de entrada e saída. Para `gemini-3.1-flash-lite`, aplicam-se as tarifas pagas de US$ 0,25 por milhão de tokens de entrada e US$ 1,50 por milhão de saída. O câmbio aproximado padrão é R$ 5,00/US$ 1, configurável por `SHOP_VISION_USD_BRL_RATE` no Vercel.
+
+O contador persiste registros mínimos (data, modelo, tokens e custo estimado) no armazenamento local do navegador. Não armazena fotos. Permanece após fechar e abrir o mesmo navegador, mas não sincroniza entre dispositivos e some ao apagar os dados locais. Reanalisar a foto conta como nova análise; trocar a fala e copiar o prompt não contam.
+
+A estimativa reflete tarifa teórica do nível pago e não o valor necessariamente cobrado: uso dentro da cota gratuita pode custar zero. Outros modelos sem tarifa cadastrada contam imagens, mas não entram na estimativa. Não substitui fatura do provedor e pode ignorar chamadas interrompidas já consumidas na API.
+
+Configuração econômica: ao definir `SHOP_VISION_API_KEY` sem endpoint explícito, o servidor usa a API compatível com OpenAI do Google Gemini, modelo `gemini-3.1-flash-lite`. Se houver somente `OPENAI_API_KEY`, permanece o endpoint OpenAI com `gpt-4o-mini`; nesse caso a contagem funciona mas o custo em reais fica indisponível até configurar tarifa.
