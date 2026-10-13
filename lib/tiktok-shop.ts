@@ -115,6 +115,19 @@ export function assembleCustom(parts: { hook: string; details: string[]; connect
   const prefix = (parts.prefix || '').trim();
   return joinParts([parts.hook, ...parts.details, parts.connector || '', prefix, parts.cta || CTA]);
 }
+export type PhotoAnalysis = { category:GarmentId|'indefinido'; description:string; highlights:string[] };
+
+export function makePhotoSpeech(piece:Piece, duration:Duration, analysis:PhotoAnalysis):string {
+  const opening = 'Meninas, olha ' + piece.mention + '!';
+  const limit = Math.floor(duration * 2.9);
+  const parts = [opening];
+  const possible = analysis.highlights.map(line => line.trim()).filter(Boolean);
+  for(const detail of possible){
+    if (countWords([...parts,detail,CTA].join(' ')) <= limit) parts.push(detail);
+  }
+  return [...parts,CTA].join(' ').replace(/\s+/g,' ').trim();
+}
+
 export function makeFlowPrompt(piece: Piece, duration: Duration, speech: string, visual?: {description:string;highlights:string[]} | null): string {
   const mark1 = Math.max(2, Math.round(duration * .3));
   const mark2 = Math.max(mark1 + 1, Math.round(duration * .65));
