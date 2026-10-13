@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, ChevronDown, ClipboardCopy, Heart, Layers, Mic2, ShieldCheck, Sparkles, WandSparkles, ImagePlus, Loader2, RefreshCcw, X } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ClipboardCopy, Heart, Layers, Mic2, ShieldCheck, Sparkles, WandSparkles, ImagePlus, Loader2, RefreshCcw, X, ChartNoAxesColumn, Coins } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import {
   assembleCustom, countWords, CTA, CTA_ALTERNATIVES, CTA_PREFIXES, CONNECTORS,
@@ -13,6 +13,9 @@ import {
 type Mode = 'prontas' | 'montar' | 'foto';
 const STORAGE_KEY = 'prompt-ai-studio:shop-falas-favoritas:v1';
 const TYPES = ['Curiosidade', 'Espelho', 'Estilo', 'Conversa', 'Detalhes'];
+const USAGE_KEY = 'prompt-ai-studio:tiktok-shop:image-usage:v1';
+type Billing = { model:string; inputTokens:number|null; outputTokens:number|null; estimatedUsd:number|null; estimatedBrl:number|null; usdBrlRate:number; paidTierEstimate:boolean };
+type UsageRecord = { at:string; model:string; estimatedBrl:number|null; estimatedUsd:number|null; inputTokens:number|null; outputTokens:number|null };
 
 export default function TikTokShopCreator() {
   const [category, setCategory] = useState<GarmentId>('macaquinho');
@@ -34,6 +37,8 @@ export default function TikTokShopCreator() {
   const [photoAnalysis, setPhotoAnalysis] = useState<PhotoAnalysis | null>(null);
   const [imageError, setImageError] = useState('');
   const [imageBusy, setImageBusy] = useState(false);
+  const [usageHistory, setUsageHistory] = useState<UsageRecord[]>([]);
+  const [usageReady, setUsageReady] = useState(false);
 
   const piece = GARMENTS.find(item => item.id === category) || GARMENTS[0];
   const scripts = useMemo(() => makePresets(piece, duration), [piece, duration]);
@@ -51,6 +56,13 @@ export default function TikTokShopCreator() {
   const estimated = secondsEstimate(speech);
   const over = estimated > duration;
   const under = estimated < duration * .5;
+  const now = new Date();
+  const monthLabel = new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric'}).format(now);
+  const monthly = usageHistory.filter(entry => {const date = new Date(entry.at); return Number.isFinite(date.getTime()) && date.getMonth()===now.getMonth() && date.getFullYear()===now.getFullYear();});
+  const estimatedBrlTotal = monthly.reduce((sum,item)=>sum+(typeof item.estimatedBrl==='number'?item.estimatedBrl:0),0);
+  const pricedCount=monthly.filter(entry=>typeof entry.estimatedBrl==='number').length;
+  const unpricedCount=monthly.length-pricedCount;
+  const fmtBRL = (value:number)=>'R$ '+value.toLocaleString('pt-BR',{minimumFractionDigits:4,maximumFractionDigits:4});
 
   useEffect(() => {
     try {
@@ -63,6 +75,18 @@ export default function TikTokShopCreator() {
     if (!favReady) return;
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites)); } catch { /* Armazenamento indisponível. */ }
   }, [favorites, favReady]);
+
+  useEffect(() => {
+    try {
+      const data:unknown = JSON.parse(localStorage.getItem(USAGE_KEY)||'[]');
+      if(Array.isArray(data)) setUsageHistory(data.filter((entry):entry is UsageRecord=>Boolean(entry&&typeof entry==='object'&&typeof entry.at==='string'&&typeof entry.model==='string')).slice(0,5000));
+    } catch { /* Histórico de uso indisponível. */ }
+    setUsageReady(true);
+  },[]);
+  useEffect(()=>{
+    if(!usageReady)return;
+    try {localStorage.setItem(USAGE_KEY,JSON.stringify(usageHistory));}catch{ /* armazenamento do navegador indisponível */ }
+  },[usageHistory,usageReady]);
 
   useEffect(() => {
     if (!imageFile) { setImagePreview(''); return; }
@@ -80,10 +104,12 @@ export default function TikTokShopCreator() {
       const form = new FormData(); form.append('image', file);
       const response = await fetch('/api/tiktok-shop/analyze', {method:'POST',body:form});
       const data:unknown = await response.json();
-      const parsed = data as {error?:string;category?:GarmentId|'indefinido';description?:string;highlights?:string[]};
+      const parsed = data as {error?:string;category?:GarmentId|'indefinido';description?:string;highlights?:string[];billing?:Billing};
       if (!response.ok) throw Error(parsed.error || 'Não foi possível analisar a foto.');
       if (!parsed.description || !Array.isArray(parsed.highlights) || !parsed.highlights.length) throw Error('Análise incompleta.');
       setPhotoAnalysis({category:parsed.category || 'indefinido',description:parsed.description,highlights:parsed.highlights});
+      const b=parsed.billing;
+      setUsageHistory(current=>[{at:new Date().toISOString(),model:b?.model||'desconhecido',estimatedBrl:typeof b?.estimatedBrl==='number'?b.estimatedBrl:null,estimatedUsd:typeof b?.estimatedUsd==='number'?b.estimatedUsd:null,inputTokens:typeof b?.inputTokens==='number'?b.inputTokens:null,outputTokens:typeof b?.outputTokens==='number'?b.outputTokens:null},...current].slice(0,5000));
       if (parsed.category && parsed.category !== 'indefinido') changeCategory(parsed.category);
       setMode('foto');
       toast.success('Roupa analisada! Fala e prompt criados automaticamente.');
@@ -202,6 +228,15 @@ export default function TikTokShopCreator() {
         </div>
 
         <div className="shop-stack shop-right">
+          <section className="shop-card shop-monthly">
+            <h2><span className="shop-number"><ChartNoAxesColumn size={16}/></span> Seu consumo de imagens</h2>
+            <p className="shop-muted">{monthLabel.charAt(0).toUpperCase()+monthLabel.slice(1)} · apenas este navegador</p>
+            <div className="shop-usage-grid">
+              <div><span>Fotos analisadas</span><strong>{monthly.length.toLocaleString('pt-BR')}</strong></div>
+              <div><span>Custo estimado no plano pago</span><strong>{pricedCount?fmtBRL(estimatedBrlTotal):'—'}</strong></div>
+            </div>
+            <div className="shop-note"><Coins size={18}/><div>Estimativa baseada nos tokens informados pela API para Gemini 3.1 Flash-Lite e câmbio aproximado de R$ 5,00/US$ 1. No plano gratuito, o valor efetivamente cobrado pode ser R$ 0. Não é uma fatura do provedor.{unpricedCount>0?' '+unpricedCount+' análise(s) sem preço verificado não entraram no valor.':''}</div></div>
+          </section>
           <section className="shop-card">
             <h2><span className="shop-number">04</span> Resultado da fala</h2>
             <div className="shop-speech">“{speech}”</div>
