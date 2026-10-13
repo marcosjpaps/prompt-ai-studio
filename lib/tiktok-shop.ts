@@ -2,7 +2,8 @@ export type Duration = 6 | 8 | 10 | 15 | 20 | 30;
 export type GarmentId = 'macaquinho' | 'vestido' | 'conjunto' | 'blusa' | 'calca' | 'saia' | 'short' | 'jeans' | 'fitness' | 'biquini' | 'body' | 'jaqueta';
 export type Piece = { id: GarmentId; label: string; mention: string; details: string[] };
 export const DURATIONS: Duration[] = [6, 8, 10, 15, 20, 30];
-export const CTA = 'Clica no carrinho aqui embaixo!';
+export const CTA = 'Clica no carrinho laranja aqui embaixo e garanta seu look!';
+export const CTA_ALTERNATIVES = [CTA, 'Gostou? Clica no carrinho laranja aqui embaixo e garanta o seu!', 'Quer esse look? Clica no carrinho laranja aqui embaixo!', 'Clica no carrinho laranja aqui embaixo e confira essa peça!', 'Esse look tá no carrinho laranja aqui embaixo!'];
 
 export const GARMENTS: Piece[] = [
   { id: 'macaquinho', label: 'Macaquinho', mention: 'esse macaquinho', details: ['Olha o caimento desse modelo!', 'Repara nos detalhes da cintura.', 'Esse visual tem tudo a ver com dias de verão.', 'O desenho da peça chama atenção.', 'Olha o resultado no espelho!', 'Esse look ficou um charme.'] },
@@ -113,9 +114,9 @@ export function makePresets(piece: Piece, duration: Duration): string[] {
     return joinParts([...parts, CTA]);
   });
 }
-export function assembleCustom(parts: { hook: string; details: string[]; connector?: string; prefix?: string }) {
+export function assembleCustom(parts: { hook: string; details: string[]; connector?: string; prefix?: string; cta?: string }) {
   const prefix = (parts.prefix || '').trim();
-  return joinParts([parts.hook, ...parts.details, parts.connector || '', prefix, CTA]);
+  return joinParts([parts.hook, ...parts.details, parts.connector || '', prefix, parts.cta || CTA]);
 }
 export function makeFlowPrompt(piece: Piece, duration: Duration, speech: string): string {
   const mark1 = Math.max(2, Math.round(duration * .3));
