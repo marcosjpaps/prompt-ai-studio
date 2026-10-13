@@ -100,3 +100,13 @@
 .shop-photo-actions button:disabled{opacity:.55;cursor:wait}
 .shop-switcher{flex-wrap:wrap}
 .shop-switcher button{min-width:90px}
+
+/* Relatório mensal de consumo de análise visual */
+.shop-monthly{border-color:#473a60;background:linear-gradient(140deg,#221b2d,#17151d)}
+.shop-monthly h2{margin-bottom:10px}
+.shop-usage-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:17px}
+.shop-usage-grid>div{display:flex;flex-direction:column;gap:7px;border:1px solid #473954;border-radius:10px;padding:14px;background:#1b1824}
+.shop-usage-grid>div>span{font-size:11px;color:#ab9bbd;line-height:1.4}
+.shop-usage-grid>div>strong{font-size:23px;font-weight:650;letter-spacing:-.7px;color:#f3e9ff;font-variant-numeric:tabular-nums}
+.shop-monthly .shop-note{font-size:11px;margin-top:13px}
+@media(max-width:420px){.shop-usage-grid>div{padding:11px}.shop-usage-grid>div>strong{font-size:18px}}
