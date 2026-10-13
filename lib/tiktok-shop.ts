@@ -88,28 +88,25 @@ function joinParts(parts: string[]) {
 }
 export function makePresets(piece: Piece, duration: Duration): string[] {
   const limit = Math.floor(duration * 2.95);
+  const target = Math.floor(duration * 2.55);
   return OPENINGS.map((opening, index) => {
     const parts: string[] = [fill(duration <= 8 ? SHORT_OPENINGS[index] : opening, piece)];
     const detail = piece.details[index % piece.details.length];
     if (countWords(joinParts([...parts, detail, CTA])) <= limit) parts.push(detail);
-    else if (duration >= 10) parts.push('Olha os detalhes!');
     if (duration >= 8) {
       const detail2 = piece.details[(index + 3) % piece.details.length];
       if (detail2 !== detail && countWords(joinParts([...parts, detail2, CTA])) <= limit - 1) parts.push(detail2);
     }
     if (duration >= 15) {
-      const extra = EXTRA_LINES[index % EXTRA_LINES.length];
-      if (countWords(joinParts([...parts, extra, CTA])) <= limit - 1) parts.push(extra);
-    }
-    if (duration >= 20) {
-      const extra = EXTRA_LINES[(index + 5) % EXTRA_LINES.length];
-      if (countWords(joinParts([...parts, extra, CTA])) <= limit - 1) parts.push(extra);
-    }
-    if (duration >= 30) {
-      const extra = EXTRA_LINES[(index + 8) % EXTRA_LINES.length];
-      if (countWords(joinParts([...parts, extra, CTA])) <= limit - 1) parts.push(extra);
-      const extra2 = EXTRA_LINES[(index + 10) % EXTRA_LINES.length];
-      if (countWords(joinParts([...parts, extra2, CTA])) <= limit - 1) parts.push(extra2);
+      const pool = [
+        ...EXTRA_LINES.slice(index % EXTRA_LINES.length),
+        ...EXTRA_LINES.slice(0, index % EXTRA_LINES.length),
+        ...piece.details.filter(value => !parts.includes(value))
+      ];
+      for (const extra of pool) {
+        if (countWords(joinParts([...parts, CTA])) >= target) break;
+        if (!parts.includes(extra) && countWords(joinParts([...parts, extra, CTA])) <= limit) parts.push(extra);
+      }
     }
     return joinParts([...parts, CTA]);
   });
