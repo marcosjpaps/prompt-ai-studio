@@ -41,6 +41,12 @@ async function run(req:Request){
    if(typeof text!=='string'||!text.trim())return json({error:'A IA retornou uma resposta vazia.'},502);
    return json({reply:text});
  }
+ if((path==='delete-project'||path==='delete-memory')&&req.method==='POST'){
+   if(typeof body.id!=='string'||!/^[-0-9a-f]{36}$/i.test(body.id))return json({error:'Identificador inválido.'},400);
+   if(path==='delete-project')await db().delete(projects).where(and(eq(projects.id,body.id),eq(projects.userId,u)));
+   else await db().delete(memories).where(and(eq(memories.id,body.id),eq(memories.userId,u)));
+   return json({deleted:true});
+ }
  if(path==='save-prompt'&&req.method==='POST'){
  const parsed=saveSchema.safeParse(body);if(!parsed.success)return json({error:'Não foi possível salvar: confira o nome, o prompt e as configurações. Nenhum texto foi cortado.'},400);const p=parsed.data;
  if(p.imageId){const owned=(await db().select({id: images.id}).from(images).where(and(eq(images.id, p.imageId), eq(images.userId, u))).limit(1))[0];if(!owned)return json({error:'Referência não encontrada.'},404);}
