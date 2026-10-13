@@ -147,3 +147,8 @@ body {
 .field>span,.field input,.field textarea,.picker,.objectives button,.preserve-row label,.vision-box p,.upload-zone p,.template-card p,.text-button,.secondary-button,.upload-button{font-size:14px!important}
 .upload-zone h3,.template-card h3{font-size:16px}.reference-foot,.upload-zone small,.generation-note,.preserve-row small,.template-use,.step,.workspace-label,.account{font-size:12px}.small-label,.version-badge,.eyebrow,.section-label,.template-label,.status-tag,.page-footer,.brand-sub{font-size:12px!important}.workflow-end,.button-tag,.nav-new{font-size:10px}.template-card p{max-width:none}.reference-foot{line-height:1.6}.upload-zone{min-height:330px}.objectives{grid-template-columns:repeat(2,1fr)}.template-top{gap:8px;flex-wrap:wrap}.workflow{flex-wrap:wrap}.page-footer{color:#95859f}.brand-sub{letter-spacing:3px}
 @media(max-width:767px){.workflow-line,.workflow-end{display:none}.step{font-size:12px}.workflow{gap:10px;justify-content:flex-start}.reference-foot{font-size:12px}.objectives{grid-template-columns:repeat(2,1fr)}.field-grid{grid-template-columns:1fr 1fr}.picker{font-size:12px!important}.page-footer{font-size:12px}.page-heading{flex-wrap:wrap}}
+
+/* Entrada para o módulo TikTok Shop Creator */
+.shop-nav-link{display:flex;align-items:center;gap:13px;min-height:43px;padding:0 15px;margin:2px 0;border-radius:8px;color:#a4a4b6;font-size:14px;text-decoration:none}
+.shop-nav-link:hover,.shop-nav-link:focus-visible{background:#282036;color:#e6d3ff}
+.shop-nav-link .nav-new{margin-left:auto}
