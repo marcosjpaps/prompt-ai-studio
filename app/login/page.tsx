@@ -12,7 +12,7 @@ function LoginForm(){
     setError('');setBusy(true);
     try{
       const response=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
-      const result=await response.json().catch(()=>({error:'Servidor indisponível.'}));
+      const result=await response.json().catch(()=>({error:'Servidor indisponível.'})) as {error?:string};
       if(!response.ok)throw new Error(result.error||'Não foi possível entrar.');
       const raw=params.get('return_to');
       const to=raw && raw.startsWith('/') && !raw.startsWith('//') && !raw.startsWith('/api/') && !raw.startsWith('/login') ? raw : '/';
