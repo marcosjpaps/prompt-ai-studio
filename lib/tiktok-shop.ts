@@ -115,18 +115,17 @@ export function assembleCustom(parts: { hook: string; details: string[]; connect
   const prefix = (parts.prefix || '').trim();
   return joinParts([parts.hook, ...parts.details, parts.connector || '', prefix, parts.cta || CTA]);
 }
-export function makeFlowPrompt(piece: Piece, duration: Duration, speech: string): string {
+export function makeFlowPrompt(piece: Piece, duration: Duration, speech: string, visual?: {description:string;highlights:string[]} | null): string {
   const mark1 = Math.max(2, Math.round(duration * .3));
   const mark2 = Math.max(mark1 + 1, Math.round(duration * .65));
   const mark3 = Math.max(mark2 + 1, Math.round(duration * .85));
   return [
-    'GOOGLE FLOW — PROMPT MESTRE TIKTOK SHOP BRASIL',
-    '',
     'FORMATO: vídeo UGC vertical 9:16, duração ' + duration + ' segundos. Uma única tomada contínua, sem cortes, com influencer brasileira adulta apresentando ' + piece.mention + ' para TikTok Shop Brasil.',
     '',
     'IDENTIDADE: a foto de referência da influencer define rosto, cabelo, tom de pele, corpo e proporções. Mantenha a identidade visual consistente do primeiro ao último frame. Não substitua nem transforme a modelo.',
     '',
     'ROUPA: use a referência visual da roupa como única fonte para cores, estampa, tecido, comprimento, recortes e modelagem de ' + piece.mention + '. Não invente atributos e não altere a peça entre os frames.',
+    ...(visual?.description ? ['', 'DESCRIÇÃO VISUAL DA FOTO DO PRODUTO: ' + visual.description, 'Detalhes observados para usar na demonstração: ' + visual.highlights.join(' '), 'Caso a descrição contradiga a imagem apresentada no Flow, priorize a imagem. Não introduza atributos não visíveis.'] : []),
     '',
     'AMBIENTE: quarto feminino brasileiro moderno e real, ligeiramente desorganizado, roupas sobre a cama, sapatos no chão, café, perfume, luminária acesa e iluminação natural. Grande espelho de corpo inteiro. Cenário e objetos imóveis e consistentes.',
     '',
