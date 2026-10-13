@@ -2,6 +2,7 @@ import { getChatGPTUser } from '@/app/chatgpt-auth';
 import { db,bucket,aiConfig } from '@/lib/server';
 import { composePrompt,initialConfig } from '@/lib/prompt';
 import {configSchema,saveSchema,memorySchema,InputError,readLimited,jsonBody,validImage} from '@/lib/validation';
+import { providerConfig } from '@/lib/ai-providers';
 import { projects, memories, images } from '@/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 
@@ -17,13 +18,28 @@ async function run(req:Request){
  if(path==='memories'&&req.method==='GET'){const r=await db().select().from(memories).where(eq(memories.userId, u)).orderBy(desc(memories.createdAt)).limit(200);return json(r);}
  if(path.startsWith('image/')&&req.method==='GET'){const row=(await db().select().from(images).where(and(eq(images.id, path.slice(6)), eq(images.userId, u))).limit(1))[0];if(!row)return json({error:'Imagem não encontrada.'},404);const obj=await bucket().get(row.key);if(!obj)return json({error:'Imagem não encontrada.'},404);return new Response(obj.body,{headers:{'Content-Type':row.mime,'Cache-Control':'private, max-age=3600','X-Content-Type-Options':'nosniff'}});}
  if(path==='upload'&&req.method==='POST'){
- let data:FormData;try{const payload=await readLimited(req,10*1024*1024+65536);data=await new Response(payload,{headers:{'Content-Type':req.headers.get('content-type')||''}}).formData()}catch(e){if(e instanceof InputError)throw e;throw new InputError('Envie uma imagem em um formulário válido.')}const file=data.get('file');if(!(file instanceof File)||!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>10*1024*1024||file.size===0)return json({error:'Envie PNG, JPG ou WebP de até 10 MB.'},400);
+ let data:FormData;try{const payload=await readLimited(req,4*1024*1024+65536);data=await new Response(payload,{headers:{'Content-Type':req.headers.get('content-type')||''}}).formData()}catch(e){if(e instanceof InputError)throw e;throw new InputError('Envie uma imagem em um formulário válido.')}const file=data.get('file');if(!(file instanceof File)||!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>4*1024*1024||file.size===0)return json({error:'Envie PNG, JPG ou WebP de até 4 MB.'},400);
  const bytes=new Uint8Array(await file.arrayBuffer());if(!validImage(bytes,file.type))return json({error:'Arquivo inválido ou incompleto. Envie uma imagem PNG, JPG ou WebP válida.'},400);
  const id=crypto.randomUUID(),key=`${u}/${id}`;await bucket().put(key,bytes,{httpMetadata:{contentType:file.type}});try{await db().insert(images).values({id,userId:u,key,name:file.name.slice(0,180),mime:file.type,createdAt:now});}catch(e){await bucket().delete(key);throw e;}return json({id,url:`/api/image/${id}`,name:file.name});
  }
  const body=req.method==='GET'?{}:await jsonBody(req);
  if(path==='memories'&&req.method==='POST'){
  const parsed=memorySchema.safeParse(body);if(!parsed.success)return json({error:'Preencha nome (até 100 caracteres) e características (até 6.000 caracteres).'},400);const m=parsed.data,id=crypto.randomUUID();await db().insert(memories).values({id,userId:u,kind:m.kind,name:m.name,details:m.details,createdAt:now});return json({id});
+ }
+ if(path==='chat' && req.method==='POST'){
+   const input = body as {apiKey?:unknown;aiProvider?:unknown;messages?:unknown};
+   const reqAiKey=typeof input.apiKey==='string' && input.apiKey.trim() ? input.apiKey.trim() : aiConfig().key;
+   if(!reqAiKey) return json({error:'Configure uma chave de API para utilizar o assistente.'},503);
+   if(typeof reqAiKey!=='string' || reqAiKey.length>1024 || !Array.isArray(input.messages)) return json({error:'Dados de chat inválidos.'},400);
+   const rows=input.messages;
+   if(!rows.length || rows.length>30 || !rows.every(m=>m&&typeof m==='object'&&['user','assistant'].includes(m.role)&&typeof m.content==='string'&&m.content.length>0&&m.content.length<=4000))return json({error:'Conversa inválida ou muito longa.'},400);
+   const {endpoint,model}=providerConfig(input.aiProvider, aiConfig().model);
+   const response=await fetch(endpoint,{method:'POST',headers:{Authorization:'Bearer '+reqAiKey,'Content-Type':'application/json'},body:JSON.stringify({model,max_tokens:550,messages:rows}),signal:AbortSignal.timeout(30000)});
+   if(!response.ok) return json({error:'O provedor de IA recusou a solicitação. Verifique a chave, o saldo e o modelo escolhido.'},502);
+   const content:unknown=await response.json();
+   const text=(content as {choices?:{message?:{content?:string}}[]}).choices?.[0]?.message?.content;
+   if(typeof text!=='string'||!text.trim())return json({error:'A IA retornou uma resposta vazia.'},502);
+   return json({reply:text});
  }
  if(path==='save-prompt'&&req.method==='POST'){
  const parsed=saveSchema.safeParse(body);if(!parsed.success)return json({error:'Não foi possível salvar: confira o nome, o prompt e as configurações. Nenhum texto foi cortado.'},400);const p=parsed.data;
@@ -41,8 +57,7 @@ async function run(req:Request){
     const reqAiKey = typeof body.apiKey==='string'&&body.apiKey.trim() ? body.apiKey : aiConfig().key;
     if(!reqAiKey)return json({error:'Adicione sua chave de API nas configurações.'},503);
     const provider = typeof body.aiProvider==='string'?body.aiProvider:'openai';
-    const endpoint = provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : provider === 'groq' ? 'https://api.groq.com/openai/v1/chat/completions' : provider === 'grok' ? 'https://api.x.ai/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
-    const aiModel = provider === 'openrouter' ? 'openai/gpt-4o' : provider === 'groq' ? 'llama-3.2-90b-vision-preview' : provider === 'grok' ? 'grok-vision-beta' : aiConfig().model;
+    const {endpoint,model:aiModel} = providerConfig(provider, aiConfig().model);
     const reqBody = {model:aiModel,max_tokens:10,messages:[{role:'user',content:'Olá.'}]};
     const resp=await fetch(endpoint,{method:'POST',headers:{Authorization:`Bearer ${reqAiKey}`,'Content-Type':'application/json','HTTP-Referer':req.headers.get('origin')||'https://prompt-ai-studio.vercel.app','X-Title':'Prompt AI Studio'},signal:AbortSignal.timeout(15000),body:JSON.stringify(reqBody)});
     if(!resp.ok) {
@@ -55,8 +70,7 @@ async function run(req:Request){
   const reqAiKey = typeof body.apiKey==='string'&&body.apiKey.trim() ? body.apiKey : aiConfig().key;
   if(!reqAiKey)return json({error:'A análise visual precisa de uma chave de API. Adicione nas configurações.'},503);
   const provider = typeof body.aiProvider==='string'?body.aiProvider:'openai';
-  const endpoint = provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : provider === 'groq' ? 'https://api.groq.com/openai/v1/chat/completions' : provider === 'grok' ? 'https://api.x.ai/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
-  const aiModel = provider === 'openrouter' ? 'openai/gpt-4o' : provider === 'groq' ? 'llama-3.2-90b-vision-preview' : provider === 'grok' ? 'grok-vision-beta' : aiConfig().model;
+  const {endpoint,model:aiModel} = providerConfig(provider, aiConfig().model);
   const row=(await db().select().from(images).where(and(eq(images.id, typeof body.imageId==='string'?body.imageId:''), eq(images.userId, u))).limit(1))[0];if(!row)return json({error:'Envie uma imagem primeiro.'},400);const obj=await bucket().get(row.key);if(!obj)return json({error:'Imagem não encontrada.'},404);
   const buf=await obj.arrayBuffer();const bytes=new Uint8Array(buf||new ArrayBuffer(0));let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));
   
@@ -74,15 +88,7 @@ async function run(req:Request){
   if(!resp.ok)return json({error:'Não foi possível analisar a imagem. Confira se a chave de API é válida e o provedor suporta visão computacional.'},502);
   const data = await resp.json() as any;try{let txt = data.choices[0].message.content; if(txt.startsWith('```json')) txt = txt.replace(/```json|```/g, ''); const result=JSON.parse(txt);if(typeof result.description!=='string')throw new Error();return json(result);}catch{return json({error:'A análise retornou um formato inesperado. Tente novamente.'},502);}
   }
-  if(path==='logout'){
-    return new Response(null, {
-      status: 302,
-      headers: {
-        'Location': '/',
-        'Set-Cookie': 'chatgpt_session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0'
-      }
-    });
-  }
+
  return json({error:'Recurso não encontrado.'},404);
 }
 async function handle(req:Request){try{return await run(req);}catch(e){if(e instanceof InputError)return json({error:e.message},e.status);console.error('Studio API error',e instanceof Error?e.message:'unknown');return json({error:'Não foi possível concluir. Seus campos foram preservados; tente novamente.'},500);}}
