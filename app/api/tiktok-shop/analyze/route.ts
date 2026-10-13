@@ -34,6 +34,7 @@ export async function GET(){
 export async function POST(req:Request){
   if(!await getChatGPTUser()) return json({error:'Faça login antes de analisar a imagem.'},401);
   if(!sameOrigin(req)) return json({error:'Origem inválida.'},403);
+  const usingGemini = Boolean(process.env.SHOP_VISION_API_KEY);
   const key = process.env.SHOP_VISION_API_KEY || process.env.OPENAI_API_KEY;
   if(!key) return json({error:'API de visão não configurada. Adicione SHOP_VISION_API_KEY no Vercel.'},503);
   if(Number(req.headers.get('content-length') || 0)>maxBytes+20000) return json({error:'A imagem deve ter até 4 MB.'},413);
@@ -46,7 +47,7 @@ export async function POST(req:Request){
   if(!mime) return json({error:'Arquivo não é uma imagem JPG, PNG ou WebP válida.'},400);
   let endpoint:URL;
   try {
-    endpoint = new URL(process.env.SHOP_VISION_API_URL || 'https://api.openai.com/v1/chat/completions');
+    endpoint = new URL(process.env.SHOP_VISION_API_URL || (usingGemini ? 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions' : 'https://api.openai.com/v1/chat/completions'));
     if(endpoint.protocol !== 'https:' || endpoint.username || endpoint.password) throw Error('invalid');
   } catch { return json({error:'Configure SHOP_VISION_API_URL como endereço HTTPS compatível.'},503); }
   const instructions = [
@@ -64,7 +65,7 @@ export async function POST(req:Request){
       method: 'POST',
       headers: { Authorization: 'Bearer ' + key, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: process.env.SHOP_VISION_MODEL || 'gpt-4o-mini',
+        model: process.env.SHOP_VISION_MODEL || (usingGemini ? 'gemini-3.1-flash-lite' : 'gpt-4o-mini'),
         max_tokens: 650,
         messages: [
           {role:'system',content:instructions},
@@ -81,6 +82,18 @@ export async function POST(req:Request){
       return json({error:'API de análise falhou. Confira a chave, o modelo, os créditos e suporte a imagens.'},502);
     }
     const body:unknown = await response.json();
+    const usage=(body as {usage?:{prompt_tokens?:number;completion_tokens?:number}}).usage;
+    const inputTokens=Number.isFinite(usage?.prompt_tokens)?Math.max(0,Number(usage?.prompt_tokens)):null;
+    const outputTokens=Number.isFinite(usage?.completion_tokens)?Math.max(0,Number(usage?.completion_tokens)):null;
+    const model=process.env.SHOP_VISION_MODEL || (usingGemini ? 'gemini-3.1-flash-lite' : 'gpt-4o-mini');
+    // Taxas do nível pago padrão do Gemini 3.1 Flash-Lite (USD por milhão de tokens).
+    // Outros modelos ficam sem estimativa até que suas tarifas sejam verificadas.
+    const knownPricing=model==='gemini-3.1-flash-lite';
+    const estimatedUsd=knownPricing && inputTokens!==null && outputTokens!==null
+      ? (inputTokens*0.25+outputTokens*1.50)/1_000_000 : null;
+    const exchangeRate=Number(process.env.SHOP_VISION_USD_BRL_RATE||'5');
+    const usdBrlRate=Number.isFinite(exchangeRate)&&exchangeRate>0&&exchangeRate<100?exchangeRate:5;
+    const estimatedBrl=estimatedUsd===null?null:estimatedUsd*usdBrlRate;
     const message=(body as {choices?:Array<{message?:{content?:string}}>}).choices?.[0]?.message?.content;
     if(typeof message !== 'string') throw Error('no content');
     const parsed:unknown = JSON.parse(message.trim());
@@ -90,7 +103,7 @@ export async function POST(req:Request){
     const highlights = Array.isArray(info.highlights) ? info.highlights.map(x=>clean(x,135)).filter(Boolean).slice(0,4) : [];
     const category = categories.has(info.category as GarmentId) ? info.category as GarmentId : 'indefinido';
     if(!description || !highlights.length) throw Error('missing data');
-    return json({category,description,highlights});
+    return json({category,description,highlights,billing:{model,inputTokens,outputTokens,estimatedUsd,estimatedBrl,usdBrlRate,paidTierEstimate:true}});
   } catch(e){
     if(e instanceof Error && (e.name==='TimeoutError' || e.name==='AbortError')) return json({error:'A API demorou demais. Tente novamente.'},504);
     console.error('Shop vision parser error',e instanceof Error?e.name:'unknown');
