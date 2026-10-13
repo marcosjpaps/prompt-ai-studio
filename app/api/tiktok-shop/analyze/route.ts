@@ -96,7 +96,8 @@ export async function POST(req:Request){
     const estimatedBrl=estimatedUsd===null?null:estimatedUsd*usdBrlRate;
     const message=(body as {choices?:Array<{message?:{content?:string}}>}).choices?.[0]?.message?.content;
     if(typeof message !== 'string') throw Error('no content');
-    const parsed:unknown = JSON.parse(message.trim());
+    const cleaned = message.trim().replace(/^```(?:json)?\s*/i,'').replace(/\s*```$/,'').trim();
+    const parsed:unknown = JSON.parse(cleaned);
     if(!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw Error('not object');
     const info = parsed as Record<string,unknown>;
     const description = clean(info.description,600);
