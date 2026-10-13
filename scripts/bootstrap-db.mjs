@@ -27,11 +27,15 @@ if (process.env.VERCEL_ENV !== 'production' || process.env.STUDIO_DB_BOOTSTRAP !
 
   console.log('Creating missing Prompt AI Studio tables and indexes...');
   for (const statement of statements) await db.query(statement);
+  const imageSchema = readFileSync(new URL('../drizzle/0001_image_blobs.sql', import.meta.url), 'utf8')
+    .replace(/^--.*$/gm, '').trim();
+  if (!/^CREATE TABLE IF NOT EXISTS "image_blobs"\b/.test(imageSchema)) throw new Error('Unexpected image migration content.');
+  await db.query(imageSchema);
 
   const check = await db.query(
-    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('projects','memories','images') ORDER BY table_name"
+    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('projects','memories','images','image_blobs') ORDER BY table_name"
   );
   const tables = check.map(row => row.table_name);
-  if (tables.length !== 3) throw new Error('Studio database bootstrap incomplete.');
+  if (tables.length !== 4) throw new Error('Studio database bootstrap incomplete.');
   console.log('Database bootstrap OK: ' + tables.join(', '));
 }
