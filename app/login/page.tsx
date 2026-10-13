@@ -1,68 +1,36 @@
 'use client';
-import { Suspense, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import {Suspense,useState} from 'react';
+import {useRouter,useSearchParams} from 'next/navigation';
+import {KeyRound,ShieldCheck,ArrowRight,Loader2} from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
-
-function LoginForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  async function handleLogin(e: React.FormEvent) {
+function LoginForm(){
+  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);
+  const router=useRouter(),params=useSearchParams();
+  async function submit(e:React.FormEvent){
     e.preventDefault();
-    setError('');
-    
-    if (email !== 'marcos220896antonio@gmail.com' || password !== 'MAR9115COS') {
-      setError('Credenciais inválidas');
-      return;
-    }
-
-    const res = await fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: password }),
-    });
-
-    if (res.ok) {
-      const returnTo = searchParams.get('return_to') || '/';
-      router.push(returnTo);
-    } else {
-      setError('Erro ao fazer login');
-    }
+    if(busy)return;
+    setError('');setBusy(true);
+    try{
+      const response=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+      const result=await response.json().catch(()=>({error:'Servidor indisponível.'}));
+      if(!response.ok)throw new Error(result.error||'Não foi possível entrar.');
+      const raw=params.get('return_to');
+      const to=raw && raw.startsWith('/') && !raw.startsWith('//') && !raw.startsWith('/api/') && !raw.startsWith('/login') ? raw : '/';
+      router.replace(to);router.refresh();
+    }catch(e){setError(e instanceof Error?e.message:'Não foi possível entrar.');}finally{setBusy(false);}
   }
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white">
-      <form onSubmit={handleLogin} className="w-full max-w-sm p-8 bg-[#111] rounded-lg border border-[#222]">
-        <h1 className="text-2xl font-bold mb-6 text-center">Login Restrito</h1>
-        {error && <div className="bg-red-500/10 text-red-500 p-3 rounded mb-4 text-sm">{error}</div>}
-        
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">E-mail</Label>
-            <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="bg-[#222] border-none" required />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Senha</Label>
-            <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} className="bg-[#222] border-none" required />
-          </div>
-          <Button type="submit" className="w-full bg-white text-black hover:bg-gray-200 mt-6">Entrar</Button>
-        </div>
-      </form>
-    </div>
-  );
+  return <main className="login-screen"><form className="login-panel" onSubmit={e=>void submit(e)}>
+    <span className="login-icon"><KeyRound size={24}/></span>
+    <div className="login-eyebrow"><ShieldCheck size={14}/> ACESSO PROTEGIDO</div>
+    <h1>Seu estúdio, seu espaço.</h1>
+    <p>Entre para continuar criando e acessar seus projetos.</p>
+    {error&&<div className="login-error" role="alert">{error}</div>}
+    <label htmlFor="login-email">E-mail</label>
+    <input id="login-email" type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} required placeholder="seu@email.com"/>
+    <label htmlFor="login-password">Senha</label>
+    <input id="login-password" type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required placeholder="Sua senha"/>
+    <button className="login-submit" type="submit" disabled={busy}>{busy?<Loader2 className="spin" size={19}/>:<ArrowRight size={19}/>} {busy?'Entrando...':'Entrar no estúdio'}</button>
+    <span className="login-foot">Prompt AI Studio · Área privada</span>
+  </form></main>;
 }
-
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white">Carregando...</div>}>
-      <LoginForm />
-    </Suspense>
-  );
-}
+export default function LoginPage(){return <Suspense fallback={<main className="login-screen"/>}><LoginForm/></Suspense>;}
