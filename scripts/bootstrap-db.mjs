@@ -29,7 +29,7 @@ if (process.env.VERCEL_ENV !== 'production' || process.env.STUDIO_DB_BOOTSTRAP !
   for (const statement of statements) await db.query(statement);
   const imageSchema = readFileSync(new URL('../drizzle/0001_image_blobs.sql', import.meta.url), 'utf8')
     .replace(/^--.*$/gm, '').trim();
-  if (!/^CREATE TABLE IF NOT EXISTS "image_blobs"\b/.test(imageSchema)) throw new Error('Unexpected image migration content.');
+  if (!/^CREATE TABLE IF NOT EXISTS "image_blobs"\s*\(/.test(imageSchema)) throw new Error('Unexpected image migration content.');
   await db.query(imageSchema);
 
   const check = await db.query(
