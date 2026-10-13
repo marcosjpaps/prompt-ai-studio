@@ -233,7 +233,7 @@ export default function TikTokShopCreator() {
             <p className="shop-muted">{monthLabel.charAt(0).toUpperCase()+monthLabel.slice(1)} · apenas este navegador</p>
             <div className="shop-usage-grid">
               <div><span>Fotos analisadas</span><strong>{monthly.length.toLocaleString('pt-BR')}</strong></div>
-              <div><span>Custo estimado no plano pago</span><strong>{pricedCount?fmtBRL(estimatedBrlTotal):'—'}</strong></div>
+              <div><span>Custo estimado no plano pago</span><strong>{pricedCount||monthly.length===0?fmtBRL(estimatedBrlTotal):'—'}</strong></div>
             </div>
             <div className="shop-note"><Coins size={18}/><div>Estimativa baseada nos tokens informados pela API para Gemini 3.1 Flash-Lite e câmbio aproximado de R$ 5,00/US$ 1. No plano gratuito, o valor efetivamente cobrado pode ser R$ 0. Não é uma fatura do provedor.{unpricedCount>0?' '+unpricedCount+' análise(s) sem preço verificado não entraram no valor.':''}</div></div>
           </section>
