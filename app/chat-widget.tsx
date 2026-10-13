@@ -17,8 +17,10 @@ export default function ChatWidget() {
 
   useEffect(() => {
     const savedHistory = localStorage.getItem('ai_chat_history');
-    if (savedHistory) setMessages(JSON.parse(savedHistory));
-    else setMessages([{ role: 'assistant', content: 'Oi, como posso te ajudar hoje?' }]);
+    try {const parsed:unknown=savedHistory ? JSON.parse(savedHistory) : null;
+      if(Array.isArray(parsed) && parsed.every(item=>item && (item.role==='assistant'||item.role==='user') && typeof item.content==='string')) setMessages(parsed.slice(-30));
+      else setMessages([{ role: 'assistant', content: 'Oi, como posso te ajudar hoje?' }]);
+    } catch { setMessages([{ role: 'assistant', content: 'Oi, como posso te ajudar hoje?' }]); }
 
     const savedKey = localStorage.getItem('ai_key'); // we reuse the key they already saved in studio!
     if (savedKey) setApiKey(savedKey);
@@ -62,32 +64,19 @@ export default function ChatWidget() {
 
     try {
       const aiProvider = localStorage.getItem('ai_provider') || 'openrouter';
-      const endpoint = aiProvider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : aiProvider === 'groq' ? 'https://api.groq.com/openai/v1/chat/completions' : aiProvider === 'grok' ? 'https://api.x.ai/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
-      const aiModel = aiProvider === 'openrouter' ? 'openai/gpt-4o' : aiProvider === 'groq' ? 'llama-3.2-90b-vision-preview' : aiProvider === 'grok' ? 'grok-vision-beta' : 'gpt-4o';
-
-      const resp = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${currentKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'Prompt AI Studio'
-        },
-        body: JSON.stringify({
-          model: aiModel,
-          messages: newMessages.map(m => ({ role: m.role, content: m.content }))
-        })
+      const resp = await fetch('/api/chat', {
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({apiKey:currentKey,aiProvider,messages:newMessages.filter(m=>m.role==='user'||m.role==='assistant').slice(-25)})
       });
-
-      if (!resp.ok) throw new Error('Falha na resposta da API');
-      const data = await resp.json() as any;
-      const reply = data.choices[0].message.content;
+      const data = await resp.json() as {error?:string;reply?:string};
+      if (!resp.ok || !data.reply) throw new Error(data.error || 'O assistente não conseguiu responder.');
+      const reply = data.reply;
 
       const updatedHistory = [...newMessages, { role: 'assistant', content: reply }];
       setMessages(updatedHistory as Message[]);
       localStorage.setItem('ai_chat_history', JSON.stringify(updatedHistory));
     } catch (e) {
-      const errorMsg = [...newMessages, { role: 'assistant', content: 'Desculpe, ocorreu um erro de conexão. Verifique sua chave.' }];
+      const errorMsg = [...newMessages, { role: 'assistant', content: e instanceof Error ? e.message : 'Falha ao comunicar com a API.' }];
       setMessages(errorMsg as Message[]);
     } finally {
       setLoading(false);
@@ -95,7 +84,7 @@ export default function ChatWidget() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end font-sans">
+    <div className="studio-assistant-widget fixed bottom-6 right-6 z-50 flex flex-col items-end font-sans">
       {isOpen && (
         <div className="mb-4 w-[350px] max-w-[calc(100vw-3rem)] h-[500px] max-h-[calc(100vh-8rem)] bg-[#111] border border-[#333] rounded-2xl shadow-2xl flex flex-col overflow-hidden text-gray-200" style={{ animation: 'slideUp 0.2s ease-out' }}>
           
@@ -104,7 +93,7 @@ export default function ChatWidget() {
               <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white shadow-lg">IA</div>
               <div>
                 <h3 className="font-semibold text-sm leading-tight text-white">Assistente Criativo</h3>
-                <p className="text-[11px] text-green-400">Online</p>
+                <p className="text-[11px] text-green-400">{apiKey ? "API selecionada" : "API pendente"}</p>
               </div>
             </div>
             <div className="flex gap-2">

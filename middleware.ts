@@ -1,18 +1,16 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import {SESSION_COOKIE, verifySessionToken} from './lib/studio-auth';
 
-export function middleware(request: NextRequest) {
-  const token = request.cookies.get('auth-token')?.value;
-  const url = request.nextUrl.clone();
-  
-  // Only protect the frontend routes, not API or login
-  if (!url.pathname.startsWith('/login') && !url.pathname.startsWith('/api') && !url.pathname.startsWith('/_next') && !url.pathname.startsWith('/favicon.ico')) {
-    if (token !== 'MAR9115COS') {
-      url.pathname = '/login';
-      url.searchParams.set('return_to', request.nextUrl.pathname);
-      return NextResponse.redirect(url);
-    }
+export async function middleware(request: NextRequest) {
+  const {pathname} = request.nextUrl;
+  if (pathname.startsWith('/api/') || pathname === '/login' || pathname.startsWith('/_next/') || pathname === '/favicon.ico' || pathname === '/favicon.svg') {
+    return NextResponse.next();
   }
-
-  return NextResponse.next();
+  const valid = await verifySessionToken(request.cookies.get(SESSION_COOKIE)?.value);
+  if (valid) return NextResponse.next();
+  const url = new URL('/login', request.url);
+  url.searchParams.set('return_to', pathname);
+  return NextResponse.redirect(url);
 }
+export const config = {matcher:['/((?!_next/static|_next/image|favicon.ico|favicon.svg).*)']};
