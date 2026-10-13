@@ -12,6 +12,7 @@ Next.js-compatible App Router via the bundled Vinext runtime, React, TypeScript 
 - Six creative objectives; camera, light, format, action and continuity controls.
 - Deterministic template-based prompt composition, labeled as such in the UI. English template labels do not translate custom user text.
 - Copy and edit prompts, negative prompts and UGC scene scripts.
+- TikTok Shop Creator in `/tiktok-shop`: 12 clothing niches × 6 durations × 20 prewritten original scripts per combination, modular hook/detail/connection/CTA builder, estimated reading time and Flow prompt copy. Default CTA is “Clica no carrinho laranja aqui embaixo e garanta seu look!”. Favorites are stored in the browser and do not require a paid AI API.
 - Durable projects / history and character / product memory.
 - Optional real visual analysis through OpenAI. Requires server secret OPENAI_API_KEY and optional OPENAI_MODEL. No key is collected by the browser.
 - Platform ChatGPT sign-in; no standalone password registration.
