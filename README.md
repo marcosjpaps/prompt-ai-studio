@@ -27,3 +27,16 @@ The hosting configuration declares DB and BUCKET. Hosted production secrets must
 ## Data security
 
 All APIs require a platform-validated user identity. Records are scoped to user_id. Mutations check Origin when present. Prompts and descriptions are rendered as text. Upload ownership is checked before reading, saving or analysis. No customer data is included in source control.
+
+
+## TikTok Shop Creator — Análise de roupas por imagem
+
+O módulo em /tiktok-shop permite escolher uma imagem JPG/PNG/WebP de até 4 MB. O navegador envia a imagem diretamente para /api/tiktok-shop/analyze, que consulta uma API de visão no servidor e retorna a categoria sugerida, a descrição objetiva da peça e frases curtas baseadas apenas nos detalhes visíveis. O texto gerado é combinado com a duração do vídeo e o CTA de carrinho laranja para criar o prompt personalizado do Flow. A imagem não é salva pelo endpoint; o usuário deve enviar a mesma imagem como referência ao Google Flow separadamente. As bibliotecas de falas continuam disponíveis mesmo sem API.
+
+Configure as variáveis de ambiente no Vercel (Project Settings → Environment Variables), **não no navegador ou repositório**:
+
+- SHOP_VISION_API_KEY: chave secreta da API de visão. Se ausente, usa OPENAI_API_KEY já configurada, se disponível.
+- SHOP_VISION_API_URL: opcional, endpoint HTTPS compatível com Chat Completions (padrão: https://api.openai.com/v1/chat/completions).
+- SHOP_VISION_MODEL: opcional, nome do modelo que aceite imagens e retorne JSON (padrão: gpt-4o-mini).
+
+O provedor deve aceitar mensagens multimodais OpenAI-compatible com image_url em data URI e resposta JSON contendo category, description e highlights. A chave nunca deve ser enviada ao usuário final ou incluída em commits. A análise por API poderá gerar cobrança do provedor escolhido. Após configurar as variáveis, implante novamente para disponibilizar a integração ao servidor.
