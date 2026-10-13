@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, ChevronDown, ClipboardCopy, Heart, Layers, Mic2, ShieldCheck, Sparkles, WandSparkles } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ClipboardCopy, Heart, Layers, Mic2, ShieldCheck, Sparkles, WandSparkles, ImagePlus, Loader2, RefreshCcw, X } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import {
   assembleCustom, countWords, CTA, CTA_ALTERNATIVES, CTA_PREFIXES, CONNECTORS,
-  DURATIONS, EXTRA_LINES, GARMENTS, makeFlowPrompt, makePresets, OPENINGS,
-  secondsEstimate, type Duration, type GarmentId
+  DURATIONS, EXTRA_LINES, GARMENTS, makeFlowPrompt, makePresets, OPENINGS, makePhotoSpeech,
+  secondsEstimate, type Duration, type GarmentId, type PhotoAnalysis
 } from '@/lib/tiktok-shop';
 
-type Mode = 'prontas' | 'montar';
+type Mode = 'prontas' | 'montar' | 'foto';
 const STORAGE_KEY = 'prompt-ai-studio:shop-falas-favoritas:v1';
 const TYPES = ['Curiosidade', 'Espelho', 'Estilo', 'Conversa', 'Detalhes'];
 
@@ -29,6 +29,11 @@ export default function TikTokShopCreator() {
   const [favorites, setFavorites] = useState<string[]>([]);
   const [favReady, setFavReady] = useState(false);
   const [onlyFavorites, setOnlyFavorites] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [photoAnalysis, setPhotoAnalysis] = useState<PhotoAnalysis | null>(null);
+  const [imageError, setImageError] = useState('');
+  const [imageBusy, setImageBusy] = useState(false);
 
   const piece = GARMENTS.find(item => item.id === category) || GARMENTS[0];
   const scripts = useMemo(() => makePresets(piece, duration), [piece, duration]);
@@ -41,8 +46,8 @@ export default function TikTokShopCreator() {
     prefix: CTA_PREFIXES[Number(ctaPrefix)],
     cta: CTA_ALTERNATIVES[Number(ending)]
   }), [customHook, hooks, hook, details, detailOptions, customDetail, connector, ctaPrefix, ending]);
-  const speech = mode === 'prontas' ? scripts[selection] : custom;
-  const prompt = useMemo(() => makeFlowPrompt(piece, duration, speech), [piece, duration, speech]);
+  const speech = mode === 'foto' && photoAnalysis ? makePhotoSpeech(piece, duration, photoAnalysis) : mode === 'montar' ? custom : scripts[selection];
+  const prompt = useMemo(() => makeFlowPrompt(piece, duration, speech, photoAnalysis), [piece, duration, speech, photoAnalysis]);
   const estimated = secondsEstimate(speech);
   const over = estimated > duration;
   const under = estimated < duration * .5;
@@ -59,6 +64,34 @@ export default function TikTokShopCreator() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(favorites)); } catch { /* Armazenamento indisponível. */ }
   }, [favorites, favReady]);
 
+  useEffect(() => {
+    if (!imageFile) { setImagePreview(''); return; }
+    const url = URL.createObjectURL(imageFile);
+    setImagePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
+
+  async function analyzeImage(file:File) {
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 4 * 1024 * 1024 || file.size < 1) {
+      setImageError('Selecione JPG, PNG ou WebP de até 4 MB.'); return;
+    }
+    setImageBusy(true);setImageError('');setImageFile(file);setPhotoAnalysis(null);
+    try {
+      const form = new FormData(); form.append('image', file);
+      const response = await fetch('/api/tiktok-shop/analyze', {method:'POST',body:form});
+      const data:unknown = await response.json();
+      const parsed = data as {error?:string;category?:GarmentId|'indefinido';description?:string;highlights?:string[]};
+      if (!response.ok) throw Error(parsed.error || 'Não foi possível analisar a foto.');
+      if (!parsed.description || !Array.isArray(parsed.highlights) || !parsed.highlights.length) throw Error('Análise incompleta.');
+      setPhotoAnalysis({category:parsed.category || 'indefinido',description:parsed.description,highlights:parsed.highlights});
+      if (parsed.category && parsed.category !== 'indefinido') changeCategory(parsed.category);
+      setMode('foto');
+      toast.success('Roupa analisada! Fala e prompt criados automaticamente.');
+    } catch (error) {
+      setImageError(error instanceof Error ? error.message : 'Falha ao analisar a imagem.');
+    } finally {setImageBusy(false);}
+  }
+  function clearPhoto() {setImageFile(null);setPhotoAnalysis(null);setImageError('');if (mode === 'foto') setMode('prontas');}
   function changeCategory(value: GarmentId) {
     setCategory(value); setSelection(0); setDetails([0]); setHook(0); setCustomHook(''); setCustomDetail('');
   }
@@ -86,13 +119,35 @@ export default function TikTokShopCreator() {
       <div className="shop-hero">
         <span className="shop-eyebrow"><Sparkles size={15}/> TIKTOK SHOP CREATOR</span>
         <h1>Uma biblioteca de falas para cada look.</h1>
-        <p>Escolha o nicho e a duração. Selecione entre 20 falas prontas ou monte a sua combinando abertura, detalhes, conexão e finalização.</p>
-        <div className="shop-tags"><span>12 nichos</span><span>6 durações</span><span>20 falas por combinação</span><span>Sem IA paga</span></div>
+        <p>Envie a foto da roupa para gerar automaticamente uma fala e um prompt personalizado ou escolha suas falas por nicho e duração.</p>
+        <div className="shop-tags"><span>12 nichos</span><span>6 durações</span><span>20 falas por combinação</span><span>Biblioteca grátis · Foto com API</span></div>
       </div>
       <div className="shop-layout">
         <div className="shop-stack">
           <section className="shop-card">
-            <h2><span className="shop-number">01</span> Configure seu vídeo</h2>
+            <h2><span className="shop-number">01</span> Envie a foto da roupa</h2>
+            <p className="shop-muted">A API identifica detalhes visíveis da peça e gera automaticamente uma fala de venda e o prompt do Flow. Sua foto não entra no GitHub.</p>
+            <label className="shop-upload">
+              {imagePreview ? <img src={imagePreview} alt="Prévia da foto da roupa"/> : <span className="shop-upload-icon"><ImagePlus size={28}/></span>}
+              <span>{imageFile ? imageFile.name : 'Toque para escolher a foto da roupa'}</span>
+              <small>JPG, PNG ou WebP · até 4 MB</small>
+              <input type="file" accept="image/png,image/jpeg,image/webp" disabled={imageBusy} onChange={e => {
+                const file=e.target.files?.[0]; if(file) void analyzeImage(file);
+                e.target.value='';
+              }}/>
+            </label>
+            {imageBusy && <div className="shop-photo-state"><Loader2 size={15} className="shop-spin"/> Analisando roupa com a API...</div>}
+            {imageError && <div className="shop-warning" role="alert">{imageError}</div>}
+            {photoAnalysis && <div className="shop-photo-result"><strong><Check size={16}/> Foto analisada</strong><p>{photoAnalysis.description}</p><div className="shop-photo-highlights">{photoAnalysis.highlights.map((line,i) => <span key={i}>{line}</span>)}</div></div>}
+            {imageFile && <div className="shop-photo-actions">
+              <button type="button" disabled={imageBusy} onClick={() => void analyzeImage(imageFile)}><RefreshCcw size={15}/> Reanalisar</button>
+              <button type="button" disabled={imageBusy} onClick={clearPhoto}><X size={15}/> Remover</button>
+            </div>}
+            <p className="shop-hint">Se a API ainda não estiver conectada, você pode continuar com as falas prontas. O envio não salva a foto no servidor.</p>
+          </section>
+
+          <section className="shop-card">
+            <h2><span className="shop-number">02</span> Configure seu vídeo</h2>
             <label className="shop-field"><span>Tipo de roupa</span><div className="shop-select-wrap">
               <select value={category} onChange={e => changeCategory(e.target.value as GarmentId)}>
                 {GARMENTS.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
@@ -105,12 +160,13 @@ export default function TikTokShopCreator() {
           </section>
 
           <section className="shop-card">
-            <h2><span className="shop-number">02</span> Escolha sua fala</h2>
+            <h2><span className="shop-number">03</span> Escolha sua fala</h2>
             <div className="shop-switcher">
+              {photoAnalysis && <button type="button" className={mode === 'foto' ? 'active' : ''} onClick={() => setMode('foto')}>Da foto</button>}
               <button type="button" className={mode === 'prontas' ? 'active' : ''} onClick={() => setMode('prontas')}>20 falas prontas</button>
               <button type="button" className={mode === 'montar' ? 'active' : ''} onClick={() => setMode('montar')}>Montar por partes</button>
             </div>
-            {mode === 'prontas' ? <>
+            {mode === 'foto' && photoAnalysis ? <div className="shop-photo-result"><strong><Sparkles size={16}/> Fala a partir da imagem</strong><p>Combinamos a descrição da foto, o tempo de vídeo e o final sobre o carrinho laranja. Para experimentar outras falas, use as abas ao lado.</p></div> : mode === 'prontas' ? <>
               <div className="shop-inline-between"><span className="shop-muted">20 ideias · {piece.label} · {duration}s</span>
                 <label className="shop-checkbox"><input type="checkbox" checked={onlyFavorites} onChange={e => setOnlyFavorites(e.target.checked)}/> Só favoritas</label>
               </div>
@@ -147,7 +203,7 @@ export default function TikTokShopCreator() {
 
         <div className="shop-stack shop-right">
           <section className="shop-card">
-            <h2><span className="shop-number">03</span> Resultado da fala</h2>
+            <h2><span className="shop-number">04</span> Resultado da fala</h2>
             <div className="shop-speech">“{speech}”</div>
             <div className="shop-meter"><span><Mic2 size={16}/> {countWords(speech)} palavras · aprox. {estimated.toFixed(1).replace('.', ',')}s</span><span>{duration}s escolhidos</span></div>
             {over && <div className="shop-warning">Essa fala pode passar de {duration}s. Reduza frases ou escolha uma duração maior para evitar voz acelerada ou cortada.</div>}
@@ -159,8 +215,8 @@ export default function TikTokShopCreator() {
           </section>
 
           <section className="shop-card">
-            <h2><span className="shop-number">04</span> Prompt mestre para o Flow</h2>
-            <p className="shop-muted">Identidade fixa, mesmo look, uma tomada só, celular sempre na mão direita e fala selecionada em PT-BR.</p>
+            <h2><span className="shop-number">05</span> Prompt completo para o Flow</h2>
+            <p className="shop-muted">Identidade fixa, mesmo look, uma tomada só, celular sempre na mão direita e fala selecionada em PT-BR. O texto copiado não inclui títulos desnecessários.</p>
             <textarea className="shop-prompt" readOnly value={prompt} aria-label="Prompt completo para Google Flow"/>
             <button type="button" className="shop-main-button" onClick={() => void copy(prompt, 'Prompt completo copiado!')}><WandSparkles size={19}/> Copiar prompt completo para o Flow</button>
             <div className="shop-note"><ShieldCheck size={17}/><div>Envie ao Flow a imagem-base da influencer usando a roupa correspondente. Esta ferramenta cria o texto do prompt; a geração do vídeo acontece no Flow.</div></div>
