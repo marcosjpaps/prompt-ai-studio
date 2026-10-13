@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { neon } from '@neondatabase/serverless';
 import { getDb } from '../db/index';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
@@ -6,8 +7,27 @@ export function db(){ return getDb(); }
 
 export function bucket(){
   const e = process.env as Record<string, string>;
-  if(!e.S3_ACCESS_KEY_ID || !e.S3_SECRET_ACCESS_KEY || !e.S3_ENDPOINT || !e.S3_BUCKET_NAME) 
-    throw new Error('Armazenamento S3 indisponível. Tente novamente.');
+  if(!e.S3_ACCESS_KEY_ID || !e.S3_SECRET_ACCESS_KEY || !e.S3_ENDPOINT || !e.S3_BUCKET_NAME) {
+    // Armazenamento de pequeno porte no Neon, quando S3/R2 não foi configurado.
+    if(!e.DATABASE_URL) throw new Error('Armazenamento de imagens ainda não configurado.');
+    const sql = neon(e.DATABASE_URL);
+    return {
+      async put(key: string, body: Uint8Array) {
+        const b64 = Buffer.from(body).toString('base64');
+        await sql`INSERT INTO image_blobs (key, data) VALUES (${key}, decode(${b64}, 'base64'))
+          ON CONFLICT (key) DO UPDATE SET data = excluded.data`;
+      },
+      async get(key: string) {
+        const rows = await sql`SELECT encode(data, 'base64') AS payload FROM image_blobs WHERE key = ${key} LIMIT 1`;
+        if(!rows.length) return null;
+        const bytes = Buffer.from(String(rows[0].payload), 'base64');
+        return { body: bytes, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset+bytes.byteLength) };
+      },
+      async delete(key: string) {
+        await sql`DELETE FROM image_blobs WHERE key = ${key}`;
+      }
+    };
+  }
   
   const client = new S3Client({
     region: (e.S3_REGION as string) || "auto",
